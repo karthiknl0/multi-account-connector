@@ -1,9 +1,0 @@
-{
-  "name": "multi-account-connector",
-  "version": "0.1.0",
-  "description": "Manage multiple OAuth accounts (GitHub, Google, ...) behind one MCP server. Claude never sees raw tokens; destructive actions are gated server-side.",
-  "author": {
-    "name": "Karthik"
-  },
-  "keywords": ["mcp", "oauth", "multi-account", "github", "google", "connector"]
-}

@@ -1,147 +1,115 @@
-# multi-account-connector
+# Codex Account Switcher
 
-A Claude Code **plugin** that bundles an **MCP server** for managing multiple OAuth
-accounts (e.g. two GitHub accounts + a Google account) behind one set of safe,
-account-scoped tools.
+Switch between multiple OpenAI **Codex** accounts (e.g. several ChatGPT Plus
+accounts you own) on Windows — pick an account from a quick picker and the
+**Codex desktop app** restarts logged into it.
 
-The key idea: **don't try to log Claude Code into many accounts.** The MCP server
-holds the tokens and exposes tools that require you to name an account on every call.
-Claude never sees a raw token.
+The Codex desktop app has no built-in account dropdown. This wraps
+[`codex-auth`](https://github.com/Loongphy/codex-auth) with a one-step switch
+that also restarts the app, plus a Desktop shortcut so it's a double-click.
 
-## Architecture
+---
 
-```
-multi-account-connector/
-├── .claude-plugin/
-│   └── plugin.json          # plugin manifest (metadata)
-├── .mcp.json                # MCP server definition (kept separate — see note below)
-├── skills/
-│   └── multi-account/
-│       └── SKILL.md         # tells Claude how to use the tools safely
-└── server/                  # the MCP server (TypeScript)
-    ├── src/
-    │   ├── index.ts         # MCP entry (stdio) + 4 tools
-    │   ├── cli.ts           # out-of-band login/logout/list
-    │   ├── vault.ts         # AES-256-GCM encrypted token store
-    │   ├── audit.ts         # append-only action log
-    │   ├── oauth.ts         # device-flow + PKCE-loopback + refresh
-    │   └── providers/
-    │       ├── registry.ts  # central dispatch + ALL security gating
-    │       ├── github.ts
-    │       └── google.ts
-    └── package.json
+## Install (one line)
+
+Open **PowerShell** and run:
+
+```powershell
+irm https://raw.githubusercontent.com/karthiknl0/multi-account-connector/main/install.ps1 | iex
 ```
 
-### Tools exposed to Claude
+This installs everything:
 
-| Tool | Purpose |
-| --- | --- |
-| `list_accounts` | List connected accounts (no tokens). |
-| `list_actions` | Discover each provider's actions + safety class. |
-| `read_from_account` | Run a **read-only** action as an account. |
-| `run_action_as_account` | Run a **read or write** action; destructive needs `confirm:true`. |
+- `codex-auth` (account manager) and the **Codex CLI**, via npm
+- `~/.codex-tools/codex-switch.ps1` — the switch + app-restart script
+- a **`codex-switch`** command in your PowerShell profiles
+- a **"Codex Switch Account"** shortcut on your Desktop
 
-> There is deliberately **no `switch_account`**. State is dangerous — every call
-> names its account, so Claude can never "lose track" of who it's acting as.
+> **Requires:** Windows, the [Codex desktop app](https://openai.com/codex/), and
+> [Node.js 18+](https://nodejs.org) (for npm). If npm is missing the installer
+> tells you and stops.
 
-## Security model
+---
 
-- **Tokens encrypted at rest** (AES-256-GCM) in `~/.multi-account-connector/vault.json`
-  (file mode `0600`). The key comes from `MAC_VAULT_KEY` or `MAC_VAULT_PASSPHRASE`.
-- **Tokens never reach the model.** Decryption happens only inside the dispatch
-  layer, used to build an authenticated `fetch`, and is never returned in any output.
-- **Read/write separation** is enforced by the server, not by prompting:
-  `read_from_account` refuses write actions.
-- **Destructive actions are double-gated:** they require the operator policy
-  `MAC_ALLOW_DESTRUCTIVE=true` **and** an explicit `confirm:true`. Without `confirm`,
-  the server returns a dry-run preview and changes nothing.
-- **Every attempt is audited** to `~/.multi-account-connector/audit.log`
-  (account, action, status, redacted params).
-- **Auth is out of band.** Accounts are connected via the CLI in your terminal, so
-  the OAuth dance never touches a conversation.
+## First-time setup — add your accounts
 
-## Setup
+Run once per account in a **new** PowerShell window:
 
-Requires Node.js 20+.
-
-```bash
-cd server
-npm install
-npm run build
-cp .env.example .env   # then fill it in
+```powershell
+codex login        # sign in as an account (use a fresh / incognito browser per account)
+codex-auth import "$env:USERPROFILE\.codex\auth.json"
 ```
 
-Generate a vault key and put it in `.env` (or export it):
+Repeat for each account, then confirm:
 
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```powershell
+codex-auth list
 ```
 
-### GitHub OAuth App
+> **Tip:** the OAuth page reuses whatever account is already signed into your
+> browser. Sign out of chatgpt.com (or use an incognito window) between accounts
+> so you don't save the same one twice.
 
-1. GitHub → Settings → Developer settings → **OAuth Apps** → New.
-2. **Enable Device Flow.**
-3. Copy the **Client ID** into `GITHUB_CLIENT_ID`.
+---
 
-### Google OAuth client (optional)
+## Switching accounts
 
-1. Google Cloud Console → APIs & Services → Credentials → Create OAuth client →
-   **Desktop app**.
-2. Set `GOOGLE_CLIENT_ID` (and `GOOGLE_CLIENT_SECRET`).
+Either:
 
-## Connect accounts (run in your terminal, not in Claude)
+- **Double-click** the **"Codex Switch Account"** icon on your Desktop, or
+- run **`codex-switch`** in a new PowerShell window.
 
-```bash
-# load your env first (e.g. `set -a; . ./.env; set +a` on macOS/Linux)
-node dist/cli.js login github      # repeat to add a second GitHub account
-node dist/cli.js login google
-node dist/cli.js list
-node dist/cli.js logout "github:someuser"
+You get an arrow-key account picker. Choose one, and the Codex desktop app
+closes and reopens logged into that account.
+
+---
+
+## How it works
+
+Codex stores its login in `~/.codex/auth.json`, and both the CLI and the desktop
+app read it. `codex-auth` keeps an encrypted snapshot of each account and swaps
+the active `auth.json` on demand. Because the desktop app only reads that file at
+startup, the switch script also restarts the app (it auto-detects the Codex
+Store app, so it survives Codex updates).
+
+There is no live in-app switch — the picker is the "dropdown", and the app
+reflects whichever account is active after the restart. OpenAI has an open
+feature request for native multi-account:
+[openai/codex#4432](https://github.com/openai/codex/issues/4432).
+
+---
+
+## Uninstall
+
+```powershell
+irm https://raw.githubusercontent.com/karthiknl0/multi-account-connector/main/uninstall.ps1 | iex
 ```
 
-Each login runs the provider's OAuth flow, then stores the encrypted token under a
-human-readable id like `github:octocat`.
+Removes the script, shortcut, and `codex-switch` function. It leaves the npm
+packages and your saved accounts alone; remove those yourself if you want:
 
-## Install the plugin in Claude Code
-
-The server reads `MAC_VAULT_KEY` and `MAC_ALLOW_DESTRUCTIVE` from the environment
-(see `.mcp.json`), so export them in the shell you launch Claude Code from.
-
-Point Claude Code at this folder as a local plugin. The exact `/plugin` commands
-move occasionally, so check the current plugins docs:
-https://code.claude.com/docs/en/plugins-reference
-
-A minimal local marketplace pointing at this plugin looks like:
-
-```json
-{
-  "name": "local-dev",
-  "plugins": [{ "name": "multi-account-connector", "source": "./multi-account-connector" }]
-}
+```powershell
+npm rm -g @loongphy/codex-auth @openai/codex
 ```
 
-Then, in Claude Code: add that marketplace and install `multi-account-connector`.
-Confirm the server is live with `/mcp` — you should see `multi-account`.
+---
 
-To allow destructive actions for a session:
+## Notes & caveats
 
-```bash
-export MAC_ALLOW_DESTRUCTIVE=true
-```
+- **Use only accounts you own.** This is for switching between your own Plus
+  accounts, not sharing accounts or evading limits. `codex-auth`'s automatic
+  rotation / usage-API features are intentionally **not** enabled here — the
+  switch uses `--skip-api` — because constant polling/rotation can risk account
+  restrictions. Switch manually.
+- If you constantly max out limits, a single **ChatGPT Pro** plan may be simpler
+  and cheaper than juggling several Plus accounts.
 
-> **Note on `.mcp.json` vs inline:** this plugin defines its MCP server in a separate
-> `.mcp.json` at the plugin root rather than inline in `plugin.json`. Inline
-> `mcpServers` in `plugin.json` has been unreliable in recent Claude Code versions
-> (the field could be dropped during manifest parsing). The separate file is the safe
-> path; switch to inline only once you've confirmed it works in your version.
+## Credits
 
-## Adding a provider
+- [`codex-auth`](https://github.com/Loongphy/codex-auth) by Loongphy — the
+  underlying account manager.
+- [Codex CLI](https://github.com/openai/codex) by OpenAI.
 
-1. Create `server/src/providers/<name>.ts` implementing the `Provider` interface
-   (`id`, `baseUrl`, `login`, `refresh`, `actions`).
-2. Mark each action's `mode` (`read`/`write`) and `destructive` flag — the registry
-   enforces gating from those flags automatically.
-3. Register it in `server/src/providers/registry.ts`.
-4. `npm run build`.
+## License
 
-No tool code changes are needed; the four generic tools dispatch to any provider.
+MIT — see [LICENSE](LICENSE).
