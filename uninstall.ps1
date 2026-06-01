@@ -2,7 +2,7 @@
     Codex Account Switcher - uninstaller
 
     One-line uninstall:
-      irm https://raw.githubusercontent.com/karthiknl0/multi-account-connector/main/uninstall.ps1 | iex
+      irm https://raw.githubusercontent.com/karthiknl0/codex-account-switcher/main/uninstall.ps1 | iex
 
     Removes the switch script, the Desktop shortcut, and the codex-switch
     function from your PowerShell profiles. Does NOT uninstall the npm packages

@@ -15,7 +15,7 @@ that also restarts the app, plus a Desktop shortcut so it's a double-click.
 Open **PowerShell** and run:
 
 ```powershell
-irm https://raw.githubusercontent.com/karthiknl0/multi-account-connector/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/karthiknl0/codex-account-switcher/main/install.ps1 | iex
 ```
 
 This installs everything:
@@ -86,7 +86,7 @@ feature request for native multi-account:
 ## Uninstall
 
 ```powershell
-irm https://raw.githubusercontent.com/karthiknl0/multi-account-connector/main/uninstall.ps1 | iex
+irm https://raw.githubusercontent.com/karthiknl0/codex-account-switcher/main/uninstall.ps1 | iex
 ```
 
 Removes the script, shortcut, and `codex-switch` function. It leaves the npm

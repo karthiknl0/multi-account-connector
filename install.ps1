@@ -2,7 +2,7 @@
     Codex Account Switcher - installer
 
     One-line install (run in PowerShell):
-      irm https://raw.githubusercontent.com/karthiknl0/multi-account-connector/main/install.ps1 | iex
+      irm https://raw.githubusercontent.com/karthiknl0/codex-account-switcher/main/install.ps1 | iex
 
     Installs:
       - codex-auth (account manager) + Codex CLI, via npm
@@ -11,7 +11,7 @@
       - a "Codex Switch Account" shortcut on your Desktop
 #>
 
-$RawBase    = 'https://raw.githubusercontent.com/karthiknl0/multi-account-connector/main'
+$RawBase    = 'https://raw.githubusercontent.com/karthiknl0/codex-account-switcher/main'
 $ToolsDir   = Join-Path $env:USERPROFILE '.codex-tools'
 $ScriptPath = Join-Path $ToolsDir 'codex-switch.ps1'
 $AddPath    = Join-Path $ToolsDir 'codex-add.ps1'
