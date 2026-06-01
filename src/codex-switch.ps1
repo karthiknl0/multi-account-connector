@@ -34,6 +34,16 @@ Start-Sleep -Seconds 1
 if ($aumid) {
     Start-Process "shell:AppsFolder\$aumid"
     Write-Host "Done - Codex is reopening as the selected account." -ForegroundColor Green
+
+    # Wait for Codex to refresh the OAuth token, then re-snapshot it so the
+    # next switch has a fresh token (refresh tokens are single-use).
+    Write-Host "Waiting for Codex to refresh token..." -ForegroundColor DarkGray
+    Start-Sleep -Seconds 8
+    $auth = Join-Path $env:USERPROFILE '.codex\auth.json'
+    if (Test-Path $auth) {
+        codex-auth import $auth | Out-Null
+        Write-Host "Token snapshot updated." -ForegroundColor DarkGray
+    }
 } else {
     Write-Host "Account switched, but the Codex desktop app wasn't found to relaunch." -ForegroundColor Yellow
     Write-Host "Open Codex manually - it will load the account you just selected." -ForegroundColor Yellow
