@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "multi-account": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/server/dist/index.js"],
+      "env": {
+        "MAC_HOME": "${CLAUDE_PLUGIN_ROOT}/.data",
+        "MAC_VAULT_KEY": "${MAC_VAULT_KEY}",
+        "MAC_ALLOW_DESTRUCTIVE": "${MAC_ALLOW_DESTRUCTIVE}"
+      }
+    }
+  }
+}
