@@ -1,12 +1,12 @@
-# Codex Account Switcher
+# AI Account Switcher (Codex + Claude)
 
-Switch between multiple OpenAI **Codex** accounts (e.g. several ChatGPT Plus
-accounts you own) on Windows — pick an account from a quick picker and the
-**Codex desktop app** restarts logged into it.
+Switch between multiple **OpenAI Codex** and **Anthropic Claude** accounts on
+Windows — pick an account from a quick menu and the desktop app restarts logged
+into it. Built for people who own several Plus/Pro accounts and want to move
+between them without the logout/login dance.
 
-The Codex desktop app has no built-in account dropdown. This wraps
-[`codex-auth`](https://github.com/Loongphy/codex-auth) with a one-step switch
-that also restarts the app, plus a Desktop shortcut so it's a double-click.
+Neither desktop app has a built-in account dropdown. This wires up a one-step
+switch (plus Desktop shortcuts) for both.
 
 ---
 
@@ -18,67 +18,78 @@ Open **PowerShell** and run:
 irm https://raw.githubusercontent.com/karthiknl0/multi-account-connector/main/install.ps1 | iex
 ```
 
-This installs everything:
+This installs:
 
-- `codex-auth` (account manager) and the **Codex CLI**, via npm
-- `~/.codex-tools/codex-switch.ps1` — the switch + app-restart script
-- a **`codex-switch`** command in your PowerShell profiles
-- a **"Codex Switch Account"** shortcut on your Desktop
+**Codex**
+- [`codex-auth`](https://github.com/Loongphy/codex-auth) + the Codex CLI (via npm)
+- `codex-switch` / `codex-add` commands + a **"Codex Switch Account"** Desktop shortcut
 
-> **Requires:** Windows, the [Codex desktop app](https://openai.com/codex/), and
-> [Node.js 18+](https://nodejs.org) (for npm). If npm is missing the installer
-> tells you and stops.
+**Claude (desktop app)**
+- `claude-switch-account` / `claude-add-account` commands + a **"Claude Switch Account"** Desktop shortcut
+- No npm needed — it works directly on Claude's credentials file
 
----
-
-## First-time setup — add your accounts
-
-Run once per account in a **new** PowerShell window:
-
-```powershell
-codex-add          # signs you in, then saves the account into the switcher
-```
-
-Repeat for **as many accounts as you want** (there's no limit — 2, 3, 10…).
-Confirm anytime with:
-
-```powershell
-codex-auth list
-```
-
-> **Tip:** the OAuth page reuses whatever account is already signed into your
-> browser. Sign out of chatgpt.com (or use an incognito window) between accounts
-> so you don't save the same one twice.
+> **Requires:** Windows; the desktop app(s) you want to switch
+> ([Codex](https://openai.com/codex/) / [Claude](https://claude.ai/download));
+> and [Node.js 18+](https://nodejs.org) for the Codex half.
 >
-> `codex-add` just runs `codex login` followed by
-> `codex-auth import "$env:USERPROFILE\.codex\auth.json"` — you can run those two
-> by hand if you prefer.
+> **Open a new PowerShell window after installing** so the commands load.
 
 ---
 
-## Switching accounts
+## Codex
 
-Either:
+### Add accounts (run per account)
+```powershell
+codex-add          # signs you in + saves the account
+codex-auth list    # see saved accounts
+```
+No limit — add as many as you have. Use a fresh/incognito browser (or sign out
+of chatgpt.com) between accounts so you don't save the same one twice.
 
-- **Double-click** the **"Codex Switch Account"** icon on your Desktop, or
-- run **`codex-switch`** in a new PowerShell window.
+### Switch
+- Double-click **"Codex Switch Account"**, or run `codex-switch`.
+- Pick an account → the Codex desktop app restarts on it.
 
-You get an arrow-key account picker. Choose one, and the Codex desktop app
-closes and reopens logged into that account.
+---
+
+## Claude (desktop app)
+
+Claude stores its login token in `~/.claude/.credentials.json`. The switcher
+keeps a copy of each account's token and swaps the active one, then restarts the
+Claude desktop app. It **only** swaps the `claudeAiOauth` token block (your
+`mcpOAuth` is preserved) and **never edits** `~/.claude/.claude.json`, so your
+settings, MCP servers and history are left untouched.
+
+### Add accounts
+Log into the account in the Claude app (the menu's **Log out**, then sign in as
+the account), then save it:
+```powershell
+claude-add-account
+```
+Repeat for each account.
+
+### Switch
+- Double-click **"Claude Switch Account"**, or run `claude-switch-account`.
+- Pick an account → the Claude desktop app restarts on it.
+
+> ⚠️ **Run the Claude switch from a standalone PowerShell window** — it closes
+> the Claude desktop app to reload the login. Don't run it from inside a Claude
+> session you care about. The displayed email can take a few seconds to refresh
+> after a switch; usage always counts against the swapped account.
 
 ---
 
 ## How it works
 
-Codex stores its login in `~/.codex/auth.json`, and both the CLI and the desktop
-app read it. `codex-auth` keeps an encrypted snapshot of each account and swaps
-the active `auth.json` on demand. Because the desktop app only reads that file at
-startup, the switch script also restarts the app (it auto-detects the Codex
-Store app, so it survives Codex updates).
+Both apps read their login from a file on disk
+(`~/.codex/auth.json`, `~/.claude/.credentials.json`) only at startup. Each
+switcher swaps the active account's credentials and restarts the app, which then
+comes up logged into the chosen account. The restart targets are auto-detected
+(Microsoft Store app IDs), so they survive app updates.
 
-There is no live in-app switch — the picker is the "dropdown", and the app
-reflects whichever account is active after the restart. OpenAI has an open
-feature request for native multi-account:
+There is no live in-app switch in either app — the menu is the "dropdown", and
+the app reflects whichever account is active after the restart. OpenAI has an
+open request for native multi-account:
 [openai/codex#4432](https://github.com/openai/codex/issues/4432).
 
 ---
@@ -89,30 +100,31 @@ feature request for native multi-account:
 irm https://raw.githubusercontent.com/karthiknl0/multi-account-connector/main/uninstall.ps1 | iex
 ```
 
-Removes the script, shortcut, and `codex-switch` function. It leaves the npm
-packages and your saved accounts alone; remove those yourself if you want:
+Removes the scripts, shortcuts, and added functions. Leaves the npm packages and
+your saved accounts alone; remove those yourself if you want:
 
 ```powershell
 npm rm -g @loongphy/codex-auth @openai/codex
+Remove-Item -Recurse -Force ~/.claude-accounts
 ```
 
 ---
 
 ## Notes & caveats
 
-- **Use only accounts you own.** This is for switching between your own Plus
-  accounts, not sharing accounts or evading limits. `codex-auth`'s automatic
-  rotation / usage-API features are intentionally **not** enabled here — the
-  switch uses `--skip-api` — because constant polling/rotation can risk account
-  restrictions. Switch manually.
-- If you constantly max out limits, a single **ChatGPT Pro** plan may be simpler
-  and cheaper than juggling several Plus accounts.
+- **Use only accounts you own.** This is for moving between your own accounts,
+  not sharing accounts or evading limits. Codex's automatic rotation / usage-API
+  features are intentionally **not** enabled (the switch uses `--skip-api`).
+- Saved tokens are stored in plaintext locally (same as how both apps already
+  store them on disk). Keep your machine secured; don't commit `~/.claude-accounts`
+  or `~/.codex` anywhere.
+- If you constantly max out limits, a single higher tier (ChatGPT Pro / Claude
+  Max) may be simpler than juggling several accounts.
 
 ## Credits
 
-- [`codex-auth`](https://github.com/Loongphy/codex-auth) by Loongphy — the
-  underlying account manager.
-- [Codex CLI](https://github.com/openai/codex) by OpenAI.
+- [`codex-auth`](https://github.com/Loongphy/codex-auth) by Loongphy
+- [Codex CLI](https://github.com/openai/codex) by OpenAI
 
 ## License
 

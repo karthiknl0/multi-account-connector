@@ -1,8 +1,11 @@
 node_modules/
 *.log
 .DS_Store
-# never commit Codex credentials
+# never commit credentials / account stores
 auth.json
 *.auth.json
+.credentials.json
 .codex/
 .codex-tools/
+.claude-tools/
+.claude-accounts/

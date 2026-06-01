@@ -1,14 +1,17 @@
 <#
-    Codex Account Switcher - installer
+    AI Account Switcher (Codex + Claude) - installer
 
     One-line install (run in PowerShell):
       irm https://raw.githubusercontent.com/karthiknl0/multi-account-connector/main/install.ps1 | iex
 
     Installs:
-      - codex-auth (account manager) + Codex CLI, via npm
-      - ~/.codex-tools/codex-switch.ps1  (the switch + app-restart script)
-      - a `codex-switch` command in your PowerShell profiles (5.1 and 7)
-      - a "Codex Switch Account" shortcut on your Desktop
+      Codex:
+        - codex-auth (account manager) + Codex CLI, via npm
+        - ~/.codex-tools/codex-switch.ps1, codex-add.ps1
+        - `codex-switch` / `codex-add` commands + a Desktop shortcut
+      Claude (desktop app):
+        - ~/.claude-tools/claude-switch.ps1, claude-add.ps1
+        - `claude-switch-account` / `claude-add-account` commands + a Desktop shortcut
 #>
 
 $RawBase    = 'https://raw.githubusercontent.com/karthiknl0/multi-account-connector/main'
@@ -96,16 +99,61 @@ $sc.Description       = 'Switch the active Codex account and restart the Codex d
 $sc.WindowStyle      = 1
 $sc.Save()
 
+# ---------------------------------------------------------------------------
+# Claude desktop switcher (no npm needed - works on the credentials file)
+# ---------------------------------------------------------------------------
+Write-Host "[+] Installing Claude desktop switcher..." -ForegroundColor Cyan
+$ClaudeTools  = Join-Path $env:USERPROFILE '.claude-tools'
+$ClaudeSwitch = Join-Path $ClaudeTools 'claude-switch.ps1'
+$ClaudeAdd    = Join-Path $ClaudeTools 'claude-add.ps1'
+New-Item -ItemType Directory -Force -Path $ClaudeTools | Out-Null
+try {
+    Invoke-RestMethod -Uri "$RawBase/src/claude-switch.ps1" -OutFile $ClaudeSwitch
+    Invoke-RestMethod -Uri "$RawBase/src/claude-add.ps1"    -OutFile $ClaudeAdd
+
+    $cfunc = @"
+
+# Claude desktop account switcher (installed by ai-account-switcher)
+function claude-switch-account {
+    & "$ClaudeSwitch"
+}
+function claude-add-account {
+    & "$ClaudeAdd"
+}
+"@
+    foreach ($pf in $profiles) {
+        $c = Get-Content $pf -Raw -ErrorAction SilentlyContinue
+        if ([string]::IsNullOrEmpty($c) -or ($c -notlike '*function claude-switch-account*')) {
+            Add-Content -Path $pf -Value $cfunc -Encoding UTF8
+        }
+    }
+
+    $clnk = Join-Path $desktop 'Claude Switch Account.lnk'
+    $cicon = $null
+    $cpkg = Get-AppxPackage | Where-Object { $_.PackageFamilyName -eq 'Claude_pzs8sxrjxfjjc' } | Select-Object -First 1
+    if ($cpkg) { $ccand = Join-Path $cpkg.InstallLocation 'app\Claude.exe'; if (Test-Path $ccand) { $cicon = "$ccand,0" } }
+    $csc = $ws.CreateShortcut($clnk)
+    $csc.TargetPath       = $psExe
+    $csc.Arguments        = "-ExecutionPolicy Bypass -NoProfile -File `"$ClaudeSwitch`""
+    $csc.WorkingDirectory = $env:USERPROFILE
+    if ($cicon) { $csc.IconLocation = $cicon }
+    $csc.Description       = 'Switch the active Claude account and restart the Claude desktop app'
+    $csc.WindowStyle      = 1
+    $csc.Save()
+} catch {
+    Write-Host "WARN: Claude switcher install skipped: $($_.Exception.Message)" -ForegroundColor Yellow
+}
+
 Write-Host ""
-Write-Host "Done! Codex Account Switcher is installed." -ForegroundColor Green
+Write-Host "Done! AI Account Switcher (Codex + Claude) is installed." -ForegroundColor Green
 Write-Host ""
-Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "  1. Add your accounts (run once per account, in a NEW terminal):" -ForegroundColor Gray
-Write-Host "       codex-add          # signs you in + saves the account (repeat for each)" -ForegroundColor Gray
-Write-Host "     Check anytime with:  codex-auth list" -ForegroundColor Gray
+Write-Host "Open a NEW PowerShell window so the new commands load, then:" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  2. To switch accounts any time:" -ForegroundColor Gray
-Write-Host "       - double-click 'Codex Switch Account' on your Desktop, OR" -ForegroundColor Gray
-Write-Host "       - run 'codex-switch' in a new PowerShell window" -ForegroundColor Gray
+Write-Host "CODEX:" -ForegroundColor Cyan
+Write-Host "  - Add accounts (per account):  codex-add        (check: codex-auth list)" -ForegroundColor Gray
+Write-Host "  - Switch:  'Codex Switch Account' desktop icon, or run  codex-switch" -ForegroundColor Gray
 Write-Host ""
-Write-Host "  (Open a NEW PowerShell window so the codex-switch command loads.)" -ForegroundColor DarkGray
+Write-Host "CLAUDE (desktop app):" -ForegroundColor Cyan
+Write-Host "  - Add accounts: log into the account in Claude, then run  claude-add-account" -ForegroundColor Gray
+Write-Host "  - Switch:  'Claude Switch Account' desktop icon, or run  claude-switch-account" -ForegroundColor Gray
+Write-Host "    (Run the Claude switch from a STANDALONE terminal - it closes the Claude app.)" -ForegroundColor DarkGray
