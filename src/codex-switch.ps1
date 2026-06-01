@@ -1,12 +1,33 @@
-# Codex account switcher
+﻿# Codex account switcher
 # Picks an account with codex-auth, then restarts the Codex desktop app so it
 # reloads ~/.codex/auth.json as the chosen account. Auto-detects the Codex app,
 # so it keeps working across Codex updates and on any machine.
+
+$RawBase = 'https://raw.githubusercontent.com/karthiknl0/codex-account-switcher/main'
 
 function Get-CodexAumid {
     $app = Get-StartApps | Where-Object { $_.Name -match 'codex' -and $_.AppID -match 'OpenAI' } | Select-Object -First 1
     if (-not $app) { $app = Get-StartApps | Where-Object { $_.Name -match 'codex' } | Select-Object -First 1 }
     return $app.AppID
+}
+
+# Best-effort update check, cached once per day.
+function Test-ForUpdate {
+    try {
+        $checkFile = Join-Path $env:USERPROFILE '.codex-tools\.update-check'
+        if (Test-Path $checkFile) {
+            if (((Get-Date) - (Get-Item $checkFile).LastWriteTime) -lt [TimeSpan]::FromDays(1)) { return }
+        }
+        New-Item -ItemType File -Force -Path $checkFile | Out-Null
+        (Get-Date -Format o) | Set-Content -Path $checkFile -ErrorAction SilentlyContinue
+        $remote  = (Invoke-RestMethod -Uri "$RawBase/VERSION" -TimeoutSec 4).ToString().Trim()
+        $verFile = Join-Path $env:USERPROFILE '.codex-tools\.version'
+        $local   = if (Test-Path $verFile) { (Get-Content $verFile -Raw).Trim() } else { '0.0.0' }
+        if ([version]$remote -gt [version]$local) {
+            Write-Host ""
+            Write-Host "  * Update available: v$local -> v$remote   (run 'codex-update')" -ForegroundColor Yellow
+        }
+    } catch {}
 }
 
 if (-not (Get-Command codex-auth -ErrorAction SilentlyContinue)) {
@@ -16,6 +37,7 @@ if (-not (Get-Command codex-auth -ErrorAction SilentlyContinue)) {
 }
 
 Write-Host "=== Codex account switch ===" -ForegroundColor Cyan
+Test-ForUpdate
 codex-auth switch --skip-api
 
 if ($LASTEXITCODE -ne 0) {

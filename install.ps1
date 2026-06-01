@@ -11,10 +11,11 @@
       - a "Codex Switch Account" shortcut on your Desktop
 #>
 
-$RawBase    = 'https://raw.githubusercontent.com/karthiknl0/codex-account-switcher/main'
-$ToolsDir   = Join-Path $env:USERPROFILE '.codex-tools'
-$ScriptPath = Join-Path $ToolsDir 'codex-switch.ps1'
-$AddPath    = Join-Path $ToolsDir 'codex-add.ps1'
+$RawBase     = 'https://raw.githubusercontent.com/karthiknl0/codex-account-switcher/main'
+$ToolsDir    = Join-Path $env:USERPROFILE '.codex-tools'
+$ScriptPath  = Join-Path $ToolsDir 'codex-switch.ps1'
+$AddPath     = Join-Path $ToolsDir 'codex-add.ps1'
+$VersionPath = Join-Path $ToolsDir '.version'
 
 Write-Host ""
 Write-Host "=== Codex Account Switcher - installer ===" -ForegroundColor Cyan
@@ -46,31 +47,49 @@ try {
     return
 }
 
-# 4. Add `codex-switch` and `codex-add` to PowerShell profiles (5.1 + 7)
-Write-Host "[3/4] Adding 'codex-switch' and 'codex-add' commands to your PowerShell profiles..." -ForegroundColor Cyan
+# Record the installed version (used by the daily update check).
+try {
+    $ver = (Invoke-RestMethod -Uri "$RawBase/VERSION" -TimeoutSec 8).ToString().Trim()
+    Set-Content -Path $VersionPath -Value $ver -Encoding ASCII
+    Write-Host "      Installed version $ver" -ForegroundColor DarkGray
+} catch {}
+
+# 4. Add `codex-switch` / `codex-add` / `codex-update` to PowerShell profiles (5.1 + 7)
+Write-Host "[3/4] Adding 'codex-switch' / 'codex-add' / 'codex-update' commands to your PowerShell profiles..." -ForegroundColor Cyan
 $docs = [Environment]::GetFolderPath('MyDocuments')   # honours OneDrive redirection
 $profiles = @(
     (Join-Path $docs 'WindowsPowerShell\Microsoft.PowerShell_profile.ps1'),
     (Join-Path $docs 'PowerShell\Microsoft.PowerShell_profile.ps1')
 )
+# Marker-delimited block so re-running the installer cleanly REPLACES the old
+# definitions (lets us add/rename commands on update without leaving dupes).
+$beginMark = '# >>> codex-account-switcher >>>'
+$endMark   = '# <<< codex-account-switcher <<<'
 $func = @"
-
-# Codex account switcher (installed by codex-account-switcher)
-function codex-switch {
-    & "$ScriptPath"
+$beginMark
+# Codex account switcher (managed by codex-account-switcher installer)
+function codex-switch { & "$ScriptPath" }
+function codex-add    { & "$AddPath" }
+function codex-update {
+    Write-Host "Updating Codex Account Switcher..." -ForegroundColor Cyan
+    irm $RawBase/install.ps1 | iex
+    Write-Host "Done. Open a new PowerShell window to load the updated commands." -ForegroundColor Green
 }
-function codex-add {
-    & "$AddPath"
-}
+$endMark
 "@
 foreach ($pf in $profiles) {
     $dir = Split-Path $pf
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
     if (-not (Test-Path $pf))  { New-Item -ItemType File -Force -Path $pf | Out-Null }
     $c = Get-Content $pf -Raw -ErrorAction SilentlyContinue
-    if ([string]::IsNullOrEmpty($c) -or ($c -notlike '*function codex-switch*')) {
-        Add-Content -Path $pf -Value $func -Encoding UTF8
-    }
+    if ($null -eq $c) { $c = '' }
+    # Remove any previous managed block, then append fresh.
+    $pattern = [Regex]::Escape($beginMark) + '.*?' + [Regex]::Escape($endMark)
+    $c = [Regex]::Replace($c, $pattern, '', 'Singleline')
+    # Legacy cleanup: drop the old un-delimited block from earlier versions.
+    $c = $c -replace '(?s)\r?\n#\s*Codex account switcher[^\r\n]*.*?function\s+codex-add\s*\{[^}]*\}', ''
+    $c = $c.TrimEnd() + "`r`n`r`n" + $func + "`r`n"
+    Set-Content -Path $pf -Value $c -Encoding UTF8
 }
 
 # 5. Desktop shortcut
@@ -108,4 +127,6 @@ Write-Host "  2. To switch accounts any time:" -ForegroundColor Gray
 Write-Host "       - double-click 'Codex Switch Account' on your Desktop, OR" -ForegroundColor Gray
 Write-Host "       - run 'codex-switch' in a new PowerShell window" -ForegroundColor Gray
 Write-Host ""
-Write-Host "  (Open a NEW PowerShell window so the codex-switch command loads.)" -ForegroundColor DarkGray
+Write-Host "  3. To update later: run  codex-update  (or re-run the install line)." -ForegroundColor Gray
+Write-Host ""
+Write-Host "  (Open a NEW PowerShell window so the commands load.)" -ForegroundColor DarkGray
