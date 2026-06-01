@@ -36,11 +36,11 @@ This installs everything:
 Run once per account in a **new** PowerShell window:
 
 ```powershell
-codex login        # sign in as an account (use a fresh / incognito browser per account)
-codex-auth import "$env:USERPROFILE\.codex\auth.json"
+codex-add          # signs you in, then saves the account into the switcher
 ```
 
-Repeat for each account, then confirm:
+Repeat for **as many accounts as you want** (there's no limit — 2, 3, 10…).
+Confirm anytime with:
 
 ```powershell
 codex-auth list
@@ -49,6 +49,10 @@ codex-auth list
 > **Tip:** the OAuth page reuses whatever account is already signed into your
 > browser. Sign out of chatgpt.com (or use an incognito window) between accounts
 > so you don't save the same one twice.
+>
+> `codex-add` just runs `codex login` followed by
+> `codex-auth import "$env:USERPROFILE\.codex\auth.json"` — you can run those two
+> by hand if you prefer.
 
 ---
 

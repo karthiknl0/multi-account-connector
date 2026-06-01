@@ -11,9 +11,10 @@
       - a "Codex Switch Account" shortcut on your Desktop
 #>
 
-$RawBase   = 'https://raw.githubusercontent.com/karthiknl0/multi-account-connector/main'
-$ToolsDir  = Join-Path $env:USERPROFILE '.codex-tools'
+$RawBase    = 'https://raw.githubusercontent.com/karthiknl0/multi-account-connector/main'
+$ToolsDir   = Join-Path $env:USERPROFILE '.codex-tools'
 $ScriptPath = Join-Path $ToolsDir 'codex-switch.ps1'
+$AddPath    = Join-Path $ToolsDir 'codex-add.ps1'
 
 Write-Host ""
 Write-Host "=== Codex Account Switcher - installer ===" -ForegroundColor Cyan
@@ -33,19 +34,20 @@ if ($LASTEXITCODE -ne 0) {
     return
 }
 
-# 3. Fetch the switch script
-Write-Host "[2/4] Installing switch script to $ScriptPath ..." -ForegroundColor Cyan
+# 3. Fetch the scripts
+Write-Host "[2/4] Installing scripts to $ToolsDir ..." -ForegroundColor Cyan
 New-Item -ItemType Directory -Force -Path $ToolsDir | Out-Null
 try {
     Invoke-RestMethod -Uri "$RawBase/src/codex-switch.ps1" -OutFile $ScriptPath
+    Invoke-RestMethod -Uri "$RawBase/src/codex-add.ps1"    -OutFile $AddPath
 } catch {
-    Write-Host "ERROR: could not download codex-switch.ps1 from GitHub." -ForegroundColor Red
+    Write-Host "ERROR: could not download scripts from GitHub." -ForegroundColor Red
     Write-Host $_.Exception.Message -ForegroundColor Red
     return
 }
 
-# 4. Add `codex-switch` to PowerShell profiles (Windows PowerShell 5.1 + PowerShell 7)
-Write-Host "[3/4] Adding 'codex-switch' command to your PowerShell profiles..." -ForegroundColor Cyan
+# 4. Add `codex-switch` and `codex-add` to PowerShell profiles (5.1 + 7)
+Write-Host "[3/4] Adding 'codex-switch' and 'codex-add' commands to your PowerShell profiles..." -ForegroundColor Cyan
 $docs = [Environment]::GetFolderPath('MyDocuments')   # honours OneDrive redirection
 $profiles = @(
     (Join-Path $docs 'WindowsPowerShell\Microsoft.PowerShell_profile.ps1'),
@@ -56,6 +58,9 @@ $func = @"
 # Codex account switcher (installed by codex-account-switcher)
 function codex-switch {
     & "$ScriptPath"
+}
+function codex-add {
+    & "$AddPath"
 }
 "@
 foreach ($pf in $profiles) {
@@ -95,10 +100,9 @@ Write-Host ""
 Write-Host "Done! Codex Account Switcher is installed." -ForegroundColor Green
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "  1. Add your accounts (run once per account, in a new terminal):" -ForegroundColor Gray
-Write-Host "       codex login        # sign in as an account (use a fresh/incognito browser per account)" -ForegroundColor Gray
-Write-Host "       codex-auth import `"`$env:USERPROFILE\.codex\auth.json`"" -ForegroundColor Gray
-Write-Host "     Repeat for each account. Check with:  codex-auth list" -ForegroundColor Gray
+Write-Host "  1. Add your accounts (run once per account, in a NEW terminal):" -ForegroundColor Gray
+Write-Host "       codex-add          # signs you in + saves the account (repeat for each)" -ForegroundColor Gray
+Write-Host "     Check anytime with:  codex-auth list" -ForegroundColor Gray
 Write-Host ""
 Write-Host "  2. To switch accounts any time:" -ForegroundColor Gray
 Write-Host "       - double-click 'Codex Switch Account' on your Desktop, OR" -ForegroundColor Gray

@@ -33,10 +33,10 @@ foreach ($pf in $profiles) {
     $skip = $false
     foreach ($line in $lines) {
         if ($line -match '^\s*#\s*Codex account switcher') { $skip = $true; continue }
-        if ($skip -and $line -match '^\s*function\s+codex-switch') { continue }
+        if ($skip -and $line -match '^\s*function\s+codex-(switch|add)') { continue }
         if ($skip -and $line -match '^\s*&\s') { continue }
-        if ($skip -and $line -match '^\s*\}') { $skip = $false; continue }
-        if ($skip -and $line.Trim() -eq '') { continue }
+        if ($skip -and $line -match '^\s*\}') { continue }
+        if ($skip -and $line.Trim() -eq '') { $skip = $false; continue }
         $out.Add($line)
     }
     Set-Content -Path $pf -Value $out -Encoding UTF8
